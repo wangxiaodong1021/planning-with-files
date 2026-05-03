@@ -391,7 +391,7 @@ class HermesAdapterTests(unittest.TestCase):
             result = json.loads(installed_tools.planning_with_files_check_complete(cwd=str(project_dir)))
             self.assertTrue(result["ok"])
             self.assertTrue(result["complete"])
-            self.assertEqual(str(skill_copy), result["skill_root"])
+            self.assertEqual(str(skill_copy.resolve()), str(Path(result["skill_root"]).resolve()))
 
 
 if __name__ == "__main__":

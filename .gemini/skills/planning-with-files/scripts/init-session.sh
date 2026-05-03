@@ -4,13 +4,14 @@
 # Usage:
 #   ./init-session.sh                              # legacy: root-level task_plan.md, findings.md, progress.md
 #   ./init-session.sh [--template TYPE]            # legacy with template choice
-#   ./init-session.sh "Backend Refactor"           # slug mode: .planning/<date>-backend-refactor/
+#   ./init-session.sh "Backend Refactor"           # slug mode: .planning/plans/<date>-backend-refactor/
 #   ./init-session.sh --plan-dir                   # slug mode with auto-generated untitled-<short> name
 #   ./init-session.sh --plan-dir "Quick Spike"     # slug mode, explicit slug
+#   ./init-session.sh --attach-session <id> "Task" # create plan and bind a Codex session to it
 #
 # Legacy mode (zero positional args, no --plan-dir) preserves v1.x behavior so
 # upgrades stay non-breaking. Slug mode addresses parallel multi-task isolation
-# (issue #148) by writing each plan under .planning/<date>-<slug>/ and pinning
+# (issue #148) by writing each plan under .planning/plans/<date>-<slug>/ and pinning
 # .planning/.active_plan so resolve-plan-dir.sh can find it.
 
 set -e
@@ -18,6 +19,7 @@ set -e
 TEMPLATE="default"
 PROJECT_NAME=""
 USE_PLAN_DIR=0
+ATTACH_SESSION_ID="${PWF_SESSION_ID:-${CODEX_SESSION_ID:-${CODEX_THREAD_ID:-}}}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -28,6 +30,11 @@ while [[ $# -gt 0 ]]; do
         --plan-dir)
             USE_PLAN_DIR=1
             shift
+            ;;
+        --attach-session)
+            ATTACH_SESSION_ID="$2"
+            USE_PLAN_DIR=1
+            shift 2
             ;;
         *)
             if [ -z "$PROJECT_NAME" ]; then
@@ -185,6 +192,62 @@ write_default_progress() {
 EOF
 }
 
+json_escape() {
+    _py="${PYTHON_BIN:-}"
+    if [ -z "$_py" ]; then
+        for _c in python3 python py; do
+            if command -v "$_c" >/dev/null 2>&1 && "$_c" -c "import json" >/dev/null 2>&1; then
+                _py="$_c"
+                break
+            fi
+        done
+    fi
+    if [ -n "$_py" ]; then
+        "$_py" -c 'import json,sys; print(json.dumps(sys.argv[1])[1:-1])' "$1"
+    else
+        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+    fi
+}
+
+write_metadata() {
+    local plan_dir="$1"
+    local plan_id="$2"
+    local title="$3"
+    local now
+    now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    cat > "${plan_dir}/metadata.json" << EOF
+{
+  "schema_version": 1,
+  "plan_id": "$(json_escape "$plan_id")",
+  "title": "$(json_escape "${title:-untitled}")",
+  "status": "in_progress",
+  "created_at": "$now",
+  "updated_at": "$now"
+}
+EOF
+}
+
+attach_session() {
+    local session_id="$1"
+    local plan_id="$2"
+    local plan_dir="$3"
+    [ -n "$session_id" ] || return 0
+    local sessions_dir="${PWD}/.planning/sessions"
+    local now
+    now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    mkdir -p "$sessions_dir"
+    cat > "${sessions_dir}/${session_id}.json" << EOF
+{
+  "schema_version": 1,
+  "session_id": "$(json_escape "$session_id")",
+  "plan_id": "$(json_escape "$plan_id")",
+  "plan_dir": "$(json_escape "$plan_dir")",
+  "mode": "attached",
+  "attached_at": "$now"
+}
+EOF
+}
+
 write_analytics_progress() {
     local date_value="$1"
     local target="$2"
@@ -258,20 +321,26 @@ if [ "$SLUG_MODE" -eq 1 ]; then
     BASE_ID="${DATE}-${SLUG}"
     PLAN_ID="$BASE_ID"
     PLAN_ROOT="${PWD}/.planning"
+    PLAN_CONTAINER="${PLAN_ROOT}/plans"
     counter=2
-    while [ -d "${PLAN_ROOT}/${PLAN_ID}" ]; do
+    while [ -d "${PLAN_CONTAINER}/${PLAN_ID}" ]; do
         PLAN_ID="${BASE_ID}-${counter}"
         counter=$((counter + 1))
     done
-    PLAN_DIR="${PLAN_ROOT}/${PLAN_ID}"
+    PLAN_DIR="${PLAN_CONTAINER}/${PLAN_ID}"
     mkdir -p "$PLAN_DIR"
 
     echo "Initializing planning files for: ${PROJECT_NAME:-untitled} (template: $TEMPLATE)"
     echo "PLAN_ID=$PLAN_ID"
     create_files_in "$PLAN_DIR"
+    write_metadata "$PLAN_DIR" "$PLAN_ID" "${PROJECT_NAME:-untitled}"
     printf "%s\n" "$PLAN_ID" > "${PLAN_ROOT}/.active_plan"
+    attach_session "$ATTACH_SESSION_ID" "$PLAN_ID" "$PLAN_DIR"
     echo ""
     echo "Active plan recorded: ${PLAN_ROOT}/.active_plan"
+    if [ -n "$ATTACH_SESSION_ID" ]; then
+        echo "Session attached: ${PLAN_ROOT}/sessions/${ATTACH_SESSION_ID}.json"
+    fi
     echo "Pin this terminal to the plan for parallel sessions:"
     echo "  export PLAN_ID=$PLAN_ID"
 else

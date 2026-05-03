@@ -2,7 +2,7 @@
 
 Backward-compat behavior:
   - Zero args → legacy root mode: writes task_plan.md/findings.md/progress.md in cwd
-  - One+ string args → slug mode: writes under .planning/YYYY-MM-DD-<slug>/
+  - One+ string args → slug mode: writes under .planning/plans/YYYY-MM-DD-<slug>/
   - --plan-dir flag forces slug mode without naming
   - Slug collisions append -2, -3, ...
 """
@@ -47,11 +47,12 @@ class InitSessionSlugTests(unittest.TestCase):
             result = self.run_init(root, "Backend Refactor")
             self.assertEqual(0, result.returncode, result.stderr)
             today = date.today().isoformat()
-            expected = root / ".planning" / f"{today}-backend-refactor"
+            expected = root / ".planning" / "plans" / f"{today}-backend-refactor"
             self.assertTrue(expected.is_dir(), f"missing {expected}")
             self.assertTrue((expected / "task_plan.md").exists())
             self.assertTrue((expected / "findings.md").exists())
             self.assertTrue((expected / "progress.md").exists())
+            self.assertTrue((expected / "metadata.json").exists())
             active = (root / ".planning" / ".active_plan").read_text(encoding="utf-8").strip()
             self.assertEqual(active, f"{today}-backend-refactor")
 
@@ -61,8 +62,8 @@ class InitSessionSlugTests(unittest.TestCase):
             result = self.run_init(root, "Foo / Bar! Baz??")
             self.assertEqual(0, result.returncode, result.stderr)
             today = date.today().isoformat()
-            expected = root / ".planning" / f"{today}-foo-bar-baz"
-            self.assertTrue(expected.is_dir(), f"got {[p.name for p in (root / '.planning').iterdir()]}")
+            expected = root / ".planning" / "plans" / f"{today}-foo-bar-baz"
+            self.assertTrue(expected.is_dir(), f"got {[p.name for p in (root / '.planning' / 'plans').iterdir()]}")
 
     def test_slug_collision_appends_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,8 +72,8 @@ class InitSessionSlugTests(unittest.TestCase):
             result = self.run_init(root, "same name")
             self.assertEqual(0, result.returncode, result.stderr)
             today = date.today().isoformat()
-            self.assertTrue((root / ".planning" / f"{today}-same-name").is_dir())
-            self.assertTrue((root / ".planning" / f"{today}-same-name-2").is_dir())
+            self.assertTrue((root / ".planning" / "plans" / f"{today}-same-name").is_dir())
+            self.assertTrue((root / ".planning" / "plans" / f"{today}-same-name-2").is_dir())
 
     def test_plan_dir_flag_default_slug(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -80,10 +81,23 @@ class InitSessionSlugTests(unittest.TestCase):
             result = self.run_init(root, "--plan-dir")
             self.assertEqual(0, result.returncode, result.stderr)
             today = date.today().isoformat()
-            dirs = list((root / ".planning").iterdir())
+            dirs = list((root / ".planning" / "plans").iterdir())
             dirs = [d for d in dirs if d.is_dir()]
             self.assertEqual(1, len(dirs))
             self.assertTrue(re.match(rf"^{today}-untitled-[a-z0-9]+$", dirs[0].name))
+
+    def test_attach_session_writes_session_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = self.run_init(root, "--attach-session", "sess-A", "Backend Refactor")
+            self.assertEqual(0, result.returncode, result.stderr)
+            today = date.today().isoformat()
+            plan_id = f"{today}-backend-refactor"
+            session_file = root / ".planning" / "sessions" / "sess-A.json"
+            self.assertTrue(session_file.exists())
+            text = session_file.read_text(encoding="utf-8")
+            self.assertIn(plan_id, text)
+            self.assertIn(".planning/plans", text)
 
     def test_template_flag_still_works_in_legacy_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

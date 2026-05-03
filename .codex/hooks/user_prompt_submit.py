@@ -13,14 +13,8 @@ def main() -> None:
     if not adapter.is_subagent_payload(payload) and not adapter.session_is_attached(payload, root):
         return
 
-    adapter.record_subagent_planning_index(payload, root, "PreToolUse")
-    stdout, _ = adapter.run_shell_script("pre-tool-use.sh", root, adapter.hook_env(payload, root))
-
-    result = adapter.parse_json(stdout)
-    decision = result.get("decision")
-    if decision and decision != "allow":
-        adapter.emit_json(result)
-        return
+    adapter.record_spawned_subagents_from_session_logs(payload, root, "UserPromptSubmit")
+    adapter.record_subagent_planning_index(payload, root, "UserPromptSubmit")
 
 
 if __name__ == "__main__":

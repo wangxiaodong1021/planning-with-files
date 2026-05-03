@@ -1,5 +1,6 @@
 #!/bin/bash
 # planning-with-files: Stop hook for Codex
+# Reused from the Cursor integration; Codex adapts followup_message separately.
 
 HOOK_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 PLAN_DIR="$(sh "${HOOK_DIR}/resolve-plan-dir.sh" 2>/dev/null)"

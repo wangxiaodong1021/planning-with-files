@@ -1,8 +1,8 @@
-"""Tests for Codex session isolation — addresses #146.
+"""Tests for Codex session isolation — addresses #146 and plan mappings.
 
 Goal: a Codex session must not receive another session's plan context just because
 task_plan.md exists in cwd. Each session must explicitly attach. Attach state
-lives at .planning/sessions/<session_id>.attached and is opt-in.
+lives at .planning/sessions/<session_id>.json and is opt-in.
 
 Backward compat: if no .planning/sessions/ directory exists at all, hooks fall
 back to legacy "any session in this cwd sees the plan" behavior to avoid breaking
@@ -47,10 +47,19 @@ class CodexSessionIsolationTests(unittest.TestCase):
         (root / "progress.md").write_text("# Progress\n\nstarted\n", encoding="utf-8")
         (root / "findings.md").write_text("# Findings\n", encoding="utf-8")
 
-    def attach_session(self, root: Path, session_id: str) -> None:
+    def attach_session(self, root: Path, session_id: str, plan_id: str | None = None) -> None:
         sessions_dir = root / ".planning" / "sessions"
         sessions_dir.mkdir(parents=True, exist_ok=True)
-        (sessions_dir / f"{session_id}.attached").write_text("legacy\n", encoding="utf-8")
+        if plan_id is None:
+            (sessions_dir / f"{session_id}.json").write_text(
+                json.dumps({"session_id": session_id, "plan_id": ""}),
+                encoding="utf-8",
+            )
+        else:
+            (sessions_dir / f"{session_id}.json").write_text(
+                json.dumps({"session_id": session_id, "plan_id": plan_id}),
+                encoding="utf-8",
+            )
 
     # ------------------------------------------------------------------
     # Backward compat: no .planning/sessions/ => legacy single-session mode
@@ -154,6 +163,22 @@ class CodexSessionIsolationTests(unittest.TestCase):
             )
             self.assertIn("ACTIVE PLAN", ra.stdout)
             self.assertNotIn("ACTIVE PLAN", rb.stdout)
+
+    def test_attached_session_reads_mapped_plan_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_dir = root / ".planning" / "plans" / "task-a"
+            plan_dir.mkdir(parents=True)
+            (plan_dir / "task_plan.md").write_text(
+                "# Task Plan\n\n## Goal\nMapped plan goal\n\n### Phase 1\n- **Status:** in_progress\n",
+                encoding="utf-8",
+            )
+            (plan_dir / "progress.md").write_text("# Progress\nmapped\n", encoding="utf-8")
+            self.attach_session(root, "sess-A", "task-a")
+            payload = {"cwd": str(root), "session_id": "sess-A"}
+            result = self.run_python_hook("user_prompt_submit.py", payload, root)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("", result.stdout)
 
 
 if __name__ == "__main__":

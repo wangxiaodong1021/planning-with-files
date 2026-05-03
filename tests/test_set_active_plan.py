@@ -40,8 +40,9 @@ class SetActivePlanTests(unittest.TestCase):
     def test_no_args_shows_current_active_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan = root / ".planning" / "2026-01-10-my-task"
+            plan = root / ".planning" / "plans" / "2026-01-10-my-task"
             plan.mkdir(parents=True)
+            (plan / "task_plan.md").write_text("# plan\n", encoding="utf-8")
             (root / ".planning" / ".active_plan").write_text("2026-01-10-my-task\n", encoding="utf-8")
             result = run_set_active(root)
             self.assertEqual(0, result.returncode, result.stderr)
@@ -50,10 +51,12 @@ class SetActivePlanTests(unittest.TestCase):
     def test_sets_active_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan_a = root / ".planning" / "task-a"
-            plan_b = root / ".planning" / "task-b"
+            plan_a = root / ".planning" / "plans" / "task-a"
+            plan_b = root / ".planning" / "plans" / "task-b"
             plan_a.mkdir(parents=True)
             plan_b.mkdir(parents=True)
+            (plan_a / "task_plan.md").write_text("# A\n", encoding="utf-8")
+            (plan_b / "task_plan.md").write_text("# B\n", encoding="utf-8")
             # Set to task-a first
             r1 = run_set_active(root, "task-a")
             self.assertEqual(0, r1.returncode, r1.stderr)
@@ -78,8 +81,8 @@ class SetActivePlanTests(unittest.TestCase):
         resolve_sh = REPO_ROOT / "scripts" / "resolve-plan-dir.sh"
         with tempfile.TemporaryDirectory() as tmp:
             root = P(tmp)
-            plan_a = root / ".planning" / "2026-task-a"
-            plan_b = root / ".planning" / "2026-task-b"
+            plan_a = root / ".planning" / "plans" / "2026-task-a"
+            plan_b = root / ".planning" / "plans" / "2026-task-b"
             plan_a.mkdir(parents=True)
             plan_b.mkdir(parents=True)
             (plan_a / "task_plan.md").write_text("# A\n", encoding="utf-8")
@@ -104,6 +107,20 @@ class SetActivePlanTests(unittest.TestCase):
                 check=False,
             )
             self.assertTrue(result.stdout.strip().endswith("2026-task-b"))
+
+    def test_attach_session_writes_session_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = root / ".planning" / "plans" / "task-a"
+            plan.mkdir(parents=True)
+            (plan / "task_plan.md").write_text("# A\n", encoding="utf-8")
+            result = run_set_active(root, "--attach-session", "sess-A", "task-a")
+            self.assertEqual(0, result.returncode, result.stderr)
+            session_file = root / ".planning" / "sessions" / "sess-A.json"
+            self.assertTrue(session_file.exists())
+            text = session_file.read_text(encoding="utf-8")
+            self.assertIn('"plan_id": "task-a"', text)
+            self.assertIn(".planning/plans/task-a", text)
 
 
 if __name__ == "__main__":

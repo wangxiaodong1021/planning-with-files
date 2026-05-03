@@ -58,7 +58,7 @@ class HookResolverIntegrationTests(unittest.TestCase):
     def test_user_prompt_submit_injects_from_planning_subdir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan_dir = root / ".planning" / "2026-01-10-backend-refactor"
+            plan_dir = root / ".planning" / "plans" / "2026-01-10-backend-refactor"
             write_plan_in_dir(plan_dir, goal="Refactor the auth layer")
             (root / ".planning" / ".active_plan").write_text(
                 "2026-01-10-backend-refactor\n", encoding="utf-8"
@@ -84,8 +84,8 @@ class HookResolverIntegrationTests(unittest.TestCase):
     def test_user_prompt_submit_env_plan_id_pins_correct_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_plan_in_dir(root / ".planning" / "task-a", goal="Task A goal")
-            write_plan_in_dir(root / ".planning" / "task-b", goal="Task B goal")
+            write_plan_in_dir(root / ".planning" / "plans" / "task-a", goal="Task A goal")
+            write_plan_in_dir(root / ".planning" / "plans" / "task-b", goal="Task B goal")
             (root / ".planning" / ".active_plan").write_text("task-b\n", encoding="utf-8")
             # Override with env var to force task-a
             result = run_hook("user-prompt-submit.sh", root, env_extra={"PLAN_ID": "task-a"})
@@ -106,7 +106,7 @@ class HookResolverIntegrationTests(unittest.TestCase):
     def test_pre_tool_use_surfaces_plan_from_subdir_on_stderr(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan_dir = root / ".planning" / "2026-01-10-my-task"
+            plan_dir = root / ".planning" / "plans" / "2026-01-10-my-task"
             write_plan_in_dir(plan_dir, goal="My task goal")
             (root / ".planning" / ".active_plan").write_text(
                 "2026-01-10-my-task\n", encoding="utf-8"
@@ -129,7 +129,7 @@ class HookResolverIntegrationTests(unittest.TestCase):
     def test_stop_reports_incomplete_from_subdir_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan_dir = root / ".planning" / "2026-01-10-feature"
+            plan_dir = root / ".planning" / "plans" / "2026-01-10-feature"
             write_plan_in_dir(plan_dir, goal="Build feature")
             (root / ".planning" / ".active_plan").write_text(
                 "2026-01-10-feature\n", encoding="utf-8"
@@ -151,7 +151,7 @@ class HookResolverIntegrationTests(unittest.TestCase):
     def test_post_tool_use_reminds_when_plan_in_subdir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            plan_dir = root / ".planning" / "2026-01-10-work"
+            plan_dir = root / ".planning" / "plans" / "2026-01-10-work"
             write_plan_in_dir(plan_dir)
             (root / ".planning" / ".active_plan").write_text(
                 "2026-01-10-work\n", encoding="utf-8"
