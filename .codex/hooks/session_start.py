@@ -13,7 +13,11 @@ def main() -> None:
     if not adapter.is_subagent_payload(payload) and not adapter.session_is_attached(payload, root):
         return
 
-    adapter.record_subagent_planning_index(payload, root, "PostToolUse")
+    adapter.record_spawned_subagents_from_session_logs(payload, root, "SessionStart")
+    adapter.record_subagent_planning_index(payload, root, "SessionStart")
+    stdout, _ = adapter.run_shell_script("user-prompt-submit.sh", root, adapter.hook_env(payload, root))
+    if stdout:
+        adapter.emit_json({"systemMessage": stdout})
 
 
 if __name__ == "__main__":

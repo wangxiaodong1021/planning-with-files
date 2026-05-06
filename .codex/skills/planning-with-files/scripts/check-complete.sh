@@ -1,28 +1,29 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Check if all phases in task_plan.md are complete
 # Always exits 0 — uses stdout for status reporting
 # Used by Stop hook to report task completion status
 
-PLAN_FILE="${1:-task_plan.md}"
+PLAN_FILE="${1:-${CODEX_PLAN_DIR:-.}/task_plan.md}"
 
 if [ ! -f "$PLAN_FILE" ]; then
     echo "[planning-with-files] No task_plan.md found — no active planning session."
     exit 0
 fi
 
-# Count total phases
-TOTAL=$(grep -c "### Phase" "$PLAN_FILE" || true)
+# Count explicit phase headings. Anchor the match so examples in prose do not
+# inflate the count.
+TOTAL=$(grep -cE '^[[:space:]]*### Phase([[:space:]:]|$)' "$PLAN_FILE" || true)
 
 # Check for **Status:** format first
-COMPLETE=$(grep -cF "**Status:** complete" "$PLAN_FILE" || true)
-IN_PROGRESS=$(grep -cF "**Status:** in_progress" "$PLAN_FILE" || true)
-PENDING=$(grep -cF "**Status:** pending" "$PLAN_FILE" || true)
+COMPLETE=$(grep -cE '^[[:space:]]*(-[[:space:]]*)?\*\*Status:\*\*[[:space:]]*complete[[:space:]]*$' "$PLAN_FILE" || true)
+IN_PROGRESS=$(grep -cE '^[[:space:]]*(-[[:space:]]*)?\*\*Status:\*\*[[:space:]]*in_progress[[:space:]]*$' "$PLAN_FILE" || true)
+PENDING=$(grep -cE '^[[:space:]]*(-[[:space:]]*)?\*\*Status:\*\*[[:space:]]*pending[[:space:]]*$' "$PLAN_FILE" || true)
 
 # Fallback: check for [complete] inline format if **Status:** not found
 if [ "$COMPLETE" -eq 0 ] && [ "$IN_PROGRESS" -eq 0 ] && [ "$PENDING" -eq 0 ]; then
-    COMPLETE=$(grep -c "\[complete\]" "$PLAN_FILE" || true)
-    IN_PROGRESS=$(grep -c "\[in_progress\]" "$PLAN_FILE" || true)
-    PENDING=$(grep -c "\[pending\]" "$PLAN_FILE" || true)
+    COMPLETE=$(grep -cE '^[[:space:]]*-[[:space:]]*\[complete\]' "$PLAN_FILE" || true)
+    IN_PROGRESS=$(grep -cE '^[[:space:]]*-[[:space:]]*\[in_progress\]' "$PLAN_FILE" || true)
+    PENDING=$(grep -cE '^[[:space:]]*-[[:space:]]*\[pending\]' "$PLAN_FILE" || true)
 fi
 
 # Default to 0 if empty
@@ -30,6 +31,10 @@ fi
 : "${COMPLETE:=0}"
 : "${IN_PROGRESS:=0}"
 : "${PENDING:=0}"
+
+if [ "$TOTAL" -eq 0 ]; then
+    TOTAL=$((COMPLETE + IN_PROGRESS + PENDING))
+fi
 
 # Report status (always exit 0 — incomplete task is a normal state)
 if [ "$COMPLETE" -eq "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then

@@ -23,6 +23,14 @@ PLANNING_FILES = ['task_plan.md', 'progress.md', 'findings.md']
 MIN_SESSION_BYTES = 5000
 
 
+def planning_root_from_env(project_path: str) -> Path:
+    plan_dir = os.getenv('CODEX_PLAN_DIR', '').strip()
+    if not plan_dir:
+        return Path(project_path)
+    path = Path(plan_dir)
+    return path if path.is_absolute() else Path(project_path, path)
+
+
 def json_loads(line: str) -> Optional[Dict[str, Any]]:
     """Prefer optional orjson while keeping the hook dependency-free."""
     try:
@@ -373,13 +381,14 @@ def extract_messages_after(messages: List[Dict[str, Any]], after_line: int) -> L
 
 def main():
     project_path = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+    planning_root = planning_root_from_env(project_path)
 
     # Check if planning files exist (indicates active task)
     has_planning_files = any(
-        Path(project_path, f).exists() for f in PLANNING_FILES
+        Path(planning_root, f).exists() for f in PLANNING_FILES
     )
     if not has_planning_files:
-        # No planning files in this project; skip catchup to avoid noise.
+        # No planning files for the active plan; skip catchup to avoid noise.
         return
 
     runtime_name, sessions = get_session_candidates(project_path)
@@ -412,6 +421,7 @@ def main():
     print("\n[planning-with-files] SESSION CATCHUP DETECTED")
     print(f"Previous session: {target_session.stem}")
     print(f"Runtime: {runtime_name}")
+    print(f"Planning directory: {planning_root}")
 
     print(f"Last planning update: {last_update_file} at message #{last_update_line}")
     print(f"Unsynced messages: {len(messages_after)}")
@@ -429,7 +439,7 @@ def main():
 
     print("\n--- RECOMMENDED ---")
     print("1. Run: git diff --stat")
-    print("2. Read: task_plan.md, progress.md, findings.md")
+    print(f"2. Read: {planning_root / 'task_plan.md'}, {planning_root / 'progress.md'}, {planning_root / 'findings.md'}")
     print("3. Update planning files based on above context")
     print("4. Continue with task")
 

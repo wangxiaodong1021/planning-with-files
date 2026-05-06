@@ -6,13 +6,15 @@ import codex_hook_adapter as adapter
 
 def main() -> None:
     payload = adapter.load_payload()
-    root = adapter.cwd_from_payload(payload)
-
-    if not adapter.is_session_attached(root, adapter.session_id_from_payload(payload)):
-        adapter.emit_json({"decision": "allow"})
+    if adapter.should_skip_planning_for_subagent(payload):
         return
 
-    stdout, stderr = adapter.run_shell_script("pre-tool-use.sh", root)
+    root = adapter.cwd_from_payload(payload)
+    if not adapter.is_subagent_payload(payload) and not adapter.session_is_attached(payload, root):
+        return
+
+    adapter.record_subagent_planning_index(payload, root, "PreToolUse")
+    stdout, stderr = adapter.run_shell_script("pre-tool-use.sh", root, adapter.hook_env(payload, root))
 
     result = adapter.parse_json(stdout)
     decision = result.get("decision")
@@ -20,8 +22,9 @@ def main() -> None:
         adapter.emit_json(result)
         return
 
-    if stderr:
+    if "PLAN TAMPERED" in stderr:
         adapter.emit_json({"systemMessage": stderr})
+        return
 
 
 if __name__ == "__main__":

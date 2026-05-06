@@ -5,11 +5,9 @@
 # to inject plan content into the model context if the file diverges from the
 # attested hash, surfacing a "[PLAN TAMPERED]" warning instead.
 #
-# Resolution:
-#   1. $PLAN_ID env var → ./.planning/$PLAN_ID/
-#   2. ./.planning/.active_plan
-#   3. Newest ./.planning/<dir>/ by mtime
-#   4. Legacy ./task_plan.md at project root
+# Resolution follows resolve-plan-dir.sh, including $CODEX_PLAN_DIR and the
+# local .planning/plans/<plan-id>/ layout, then falls back to legacy
+# ./task_plan.md at project root.
 #
 # Usage:
 #   sh scripts/attest-plan.sh         # attest the active plan

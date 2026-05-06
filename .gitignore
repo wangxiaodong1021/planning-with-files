@@ -9,6 +9,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Python cache files
+__pycache__/
+*.py[cod]
+
 # Development planning files (meta: I used this skill to build this skill!)
 task_plan.md
 findings.md

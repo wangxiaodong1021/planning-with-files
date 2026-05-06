@@ -14,19 +14,26 @@ if (-not (Test-Path $PlanFile)) {
 # Read file content
 $content = Get-Content $PlanFile -Raw
 
-# Count total phases
-$TOTAL = ([regex]::Matches($content, "### Phase")).Count
+$multiline = [System.Text.RegularExpressions.RegexOptions]::Multiline
+
+# Count explicit phase headings. Anchor the match so examples in prose do not
+# inflate the count.
+$TOTAL = ([regex]::Matches($content, "^[ \t]*### Phase([ \t:]|$)", $multiline)).Count
 
 # Check for **Status:** format first
-$COMPLETE = ([regex]::Matches($content, "\*\*Status:\*\* complete")).Count
-$IN_PROGRESS = ([regex]::Matches($content, "\*\*Status:\*\* in_progress")).Count
-$PENDING = ([regex]::Matches($content, "\*\*Status:\*\* pending")).Count
+$COMPLETE = ([regex]::Matches($content, "^[ \t]*(-[ \t]*)?\*\*Status:\*\*[ \t]*complete[ \t]*$", $multiline)).Count
+$IN_PROGRESS = ([regex]::Matches($content, "^[ \t]*(-[ \t]*)?\*\*Status:\*\*[ \t]*in_progress[ \t]*$", $multiline)).Count
+$PENDING = ([regex]::Matches($content, "^[ \t]*(-[ \t]*)?\*\*Status:\*\*[ \t]*pending[ \t]*$", $multiline)).Count
 
 # Fallback: check for [complete] inline format if **Status:** not found
 if ($COMPLETE -eq 0 -and $IN_PROGRESS -eq 0 -and $PENDING -eq 0) {
-    $COMPLETE = ([regex]::Matches($content, "\[complete\]")).Count
-    $IN_PROGRESS = ([regex]::Matches($content, "\[in_progress\]")).Count
-    $PENDING = ([regex]::Matches($content, "\[pending\]")).Count
+    $COMPLETE = ([regex]::Matches($content, "^[ \t]*-[ \t]*\[complete\]", $multiline)).Count
+    $IN_PROGRESS = ([regex]::Matches($content, "^[ \t]*-[ \t]*\[in_progress\]", $multiline)).Count
+    $PENDING = ([regex]::Matches($content, "^[ \t]*-[ \t]*\[pending\]", $multiline)).Count
+}
+
+if ($TOTAL -eq 0) {
+    $TOTAL = $COMPLETE + $IN_PROGRESS + $PENDING
 }
 
 # Report status -- always exit 0, incomplete task is a normal state
