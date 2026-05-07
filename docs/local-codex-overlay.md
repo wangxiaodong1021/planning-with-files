@@ -27,13 +27,15 @@ Prefer this ownership split:
 | Surface | Owner | Rule |
 |---|---|---|
 | Upstream files outside `.codex/` | Upstream | Keep as close to upstream as possible. |
-| `.codex/hooks/*.py` | Local overlay | Codex Desktop/CLI adapter behavior lives here. |
+| `.codex/hooks/codex_hook_adapter.py` | Upstream | Keep aligned with the current upstream release and do not add local runtime behavior here. |
+| `.codex/hooks/local_codex_overlay.py` | Local overlay | Codex Desktop/CLI adapter behavior lives here. |
+| `.codex/hooks/*_tool_use.py`, `stop.py`, `session_start.py`, `user_prompt_submit.py` | Local overlay entrypoints | Keep thin; call the adapter API and emit Codex-compatible JSON. |
 | `.codex/hooks/*.sh` | Local overlay | Thin shell behavior used by Python adapters. |
 | `.codex/hooks/tests/` | Local overlay | Regression tests for local runtime contract. |
 | `.codex/skills/planning-with-files/SKILL.md` | Shared | Only add local notes that are required for installed Codex behavior. |
 | `commands/plan-attest.md` | Shared | Keep upstream-compatible wording, with local resolver details where needed. |
 
-The desired future direction is to keep upstream files pristine when practical and move local behavior into adapter modules. Until that refactor is done, local changes must stay concentrated in `.codex/` and be audited after every upstream update.
+The local adapter behavior is concentrated in `.codex/hooks/local_codex_overlay.py`. Keep entrypoint wrappers thin and avoid spreading local-only routing logic into upstream mirror files. In particular, do not re-edit `.codex/hooks/codex_hook_adapter.py` for local Codex behavior; leave it as the upstream comparison anchor.
 
 ## Update Workflow
 
@@ -65,6 +67,17 @@ After every merge or rebase, the audit must pass:
 - Hook unit tests pass.
 - Python hook files compile.
 - Optional real `codex exec` smoke test passes when `--cli` is used.
+
+## Install The Local Overlay
+
+After the repository state is verified, install it into the local Codex runtime:
+
+```bash
+scripts/install-local-codex-overlay.sh --dry-run
+scripts/install-local-codex-overlay.sh
+```
+
+The installer backs up the current local hooks, skill, `hooks.json`, and `/plan-attest` command under `~/.codex/backups/` before copying the repository overlay into `~/.codex`.
 
 If Codex reports a hook error, add a regression test before fixing it. In particular, hook stdout format is part of the contract and must be parsed as JSON when Codex expects JSON.
 

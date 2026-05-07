@@ -33,6 +33,10 @@ echo "base: $BASE_TAG"
 echo "head: $(git rev-parse --short HEAD)"
 echo
 
+echo "== Working tree status =="
+git status --short
+echo
+
 echo "== Local commits after $BASE_TAG =="
 git log --oneline "$BASE_TAG..HEAD" || true
 echo
@@ -43,7 +47,7 @@ echo
 
 echo "== Non-Codex/shared files to review =="
 git diff --name-only "$BASE_TAG..HEAD" |
-  grep -Ev '^(\.codex/|commands/plan-attest\.md$|\.gitignore$|docs/local-codex-overlay\.md$|scripts/audit-local-codex-overlay\.sh$)' |
+  grep -Ev '^(\.codex/|commands/plan-attest\.md$|\.gitignore$|docs/local-codex-overlay\.md$|scripts/audit-local-codex-overlay\.sh$|scripts/install-local-codex-overlay\.sh$)' |
   sed 's/^/- /' || true
 echo
 
@@ -54,6 +58,7 @@ echo
 echo "== Python compile check =="
 python3 -m py_compile \
   .codex/hooks/codex_hook_adapter.py \
+  .codex/hooks/local_codex_overlay.py \
   .codex/hooks/user_prompt_submit.py \
   .codex/hooks/pre_tool_use.py \
   .codex/hooks/post_tool_use.py \
@@ -61,6 +66,11 @@ python3 -m py_compile \
   .codex/hooks/session_start.py \
   .codex/hooks/tests/test_codex_hook_adapter.py \
   .codex/hooks/tests/test_planning_runtime_regressions.py
+echo
+
+echo "== Shell syntax check =="
+sh -n scripts/audit-local-codex-overlay.sh
+sh -n scripts/install-local-codex-overlay.sh
 echo
 
 echo "== UserPromptSubmit JSON smoke =="

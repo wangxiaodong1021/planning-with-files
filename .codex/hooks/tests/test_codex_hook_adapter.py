@@ -12,15 +12,15 @@ from unittest import mock
 
 
 HOOK_DIR = Path(__file__).resolve().parents[1]
-ADAPTER_PATH = HOOK_DIR / "codex_hook_adapter.py"
+ADAPTER_PATH = HOOK_DIR / "local_codex_overlay.py"
 SESSION_CATCHUP_PATH = (
     Path.home() / ".codex" / "skills" / "planning-with-files" / "scripts" / "session-catchup.py"
 )
 
-spec = importlib.util.spec_from_file_location("codex_hook_adapter", ADAPTER_PATH)
+spec = importlib.util.spec_from_file_location("local_codex_overlay", ADAPTER_PATH)
 assert spec is not None and spec.loader is not None
 adapter = importlib.util.module_from_spec(spec)
-sys.modules["codex_hook_adapter"] = adapter
+sys.modules["local_codex_overlay"] = adapter
 spec.loader.exec_module(adapter)
 
 catchup_spec = importlib.util.spec_from_file_location("session_catchup", SESSION_CATCHUP_PATH)
@@ -328,7 +328,7 @@ import json
 import sys
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("codex_hook_adapter", {str(ADAPTER_PATH)!r})
+spec = importlib.util.spec_from_file_location("local_codex_overlay", {str(ADAPTER_PATH)!r})
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 payload = json.loads(sys.argv[1])

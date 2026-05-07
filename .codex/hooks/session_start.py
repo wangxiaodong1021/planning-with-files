@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import codex_hook_adapter as adapter
+import local_codex_overlay as adapter
 
 
 def main() -> None:
