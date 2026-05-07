@@ -458,6 +458,12 @@ class HookWrapperTests(unittest.TestCase):
             env=env,
         )
 
+    def _system_message(self, result: subprocess.CompletedProcess[str]) -> str:
+        payload = json.loads(result.stdout)
+        message = payload.get("systemMessage")
+        self.assertIsInstance(message, str)
+        return message
+
     def test_user_prompt_submit_registers_opted_subagent_and_reads_child_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
@@ -483,8 +489,9 @@ class HookWrapperTests(unittest.TestCase):
             result = self._run_hook("user_prompt_submit.py", payload, cwd)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("ACTIVE PLAN", result.stdout)
-            self.assertIn(str(child_plan_dir), result.stdout)
+            message = self._system_message(result)
+            self.assertIn("ACTIVE PLAN", message)
+            self.assertIn(str(child_plan_dir), message)
 
             parent_index = cwd / ".codex" / "planning" / "parent-session" / "subagents.md"
             self.assertTrue(parent_index.exists())
@@ -600,8 +607,9 @@ class HookWrapperTests(unittest.TestCase):
 
             result = self._run_hook("user_prompt_submit.py", {"cwd": str(cwd), "session_id": "s1"}, cwd)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Task Plan: A", result.stdout)
-            self.assertIn("mapped progress", result.stdout)
+            message = self._system_message(result)
+            self.assertIn("Task Plan: A", message)
+            self.assertIn("mapped progress", message)
 
 
 class SessionCatchupTests(unittest.TestCase):

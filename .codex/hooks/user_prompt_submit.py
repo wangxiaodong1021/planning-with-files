@@ -17,7 +17,7 @@ def main() -> None:
     adapter.record_subagent_planning_index(payload, root, "UserPromptSubmit")
     stdout, _ = adapter.run_shell_script("user-prompt-submit.sh", root, adapter.hook_env(payload, root))
     if stdout:
-        print(stdout)
+        adapter.emit_json({"systemMessage": stdout})
 
 
 if __name__ == "__main__":

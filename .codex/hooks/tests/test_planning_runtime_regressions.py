@@ -64,6 +64,14 @@ def write_plan(plan_dir: Path, title: str = "Task Plan") -> None:
     (plan_dir / "findings.md").write_text("# Findings\n", encoding="utf-8")
 
 
+def system_message_from(result: subprocess.CompletedProcess[str]) -> str:
+    payload = json.loads(result.stdout)
+    message = payload.get("systemMessage")
+    if not isinstance(message, str):
+        raise AssertionError(f"expected systemMessage in hook JSON, got: {result.stdout!r}")
+    return message
+
+
 class PlanningRuntimeRegressionTests(unittest.TestCase):
     def test_resolvers_keep_codex_plan_dir_and_plans_container_support(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -160,8 +168,9 @@ class PlanningRuntimeRegressionTests(unittest.TestCase):
                 stdin=json.dumps({"cwd": str(cwd)}),
             )
             self.assertEqual(user_prompt_ok.returncode, 0, user_prompt_ok.stderr)
-            self.assertIn("Plan-SHA256:", user_prompt_ok.stdout)
-            self.assertIn("Task Plan: Alpha", user_prompt_ok.stdout)
+            ok_message = system_message_from(user_prompt_ok)
+            self.assertIn("Plan-SHA256:", ok_message)
+            self.assertIn("Task Plan: Alpha", ok_message)
 
             with (plan_dir / "task_plan.md").open("a", encoding="utf-8") as handle:
                 handle.write("\nTampered after attestation.\n")
@@ -172,8 +181,9 @@ class PlanningRuntimeRegressionTests(unittest.TestCase):
                 stdin=json.dumps({"cwd": str(cwd)}),
             )
             self.assertEqual(user_prompt.returncode, 0, user_prompt.stderr)
-            self.assertIn("PLAN TAMPERED", user_prompt.stdout)
-            self.assertNotIn("---BEGIN PLAN DATA---", user_prompt.stdout)
+            tamper_message = system_message_from(user_prompt)
+            self.assertIn("PLAN TAMPERED", tamper_message)
+            self.assertNotIn("---BEGIN PLAN DATA---", tamper_message)
 
             pretool = run_cmd(
                 [sys.executable, str(HOOK_DIR / "pre_tool_use.py")],
@@ -207,8 +217,9 @@ class PlanningRuntimeRegressionTests(unittest.TestCase):
                 stdin=json.dumps({"cwd": str(cwd)}),
             )
             self.assertEqual(user_prompt.returncode, 0, user_prompt.stderr)
-            self.assertIn("Task Plan: Beta", user_prompt.stdout)
-            self.assertNotIn("PLAN TAMPERED", user_prompt.stdout)
+            message = system_message_from(user_prompt)
+            self.assertIn("Task Plan: Beta", message)
+            self.assertNotIn("PLAN TAMPERED", message)
 
     def test_json_session_mapping_with_plan_dir_surfaces_plan_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -235,8 +246,9 @@ class PlanningRuntimeRegressionTests(unittest.TestCase):
                 stdin=json.dumps({"cwd": str(cwd), "session_id": "session-1"}),
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Task Plan: Mapped", result.stdout)
-            self.assertIn(str(plan_dir), result.stdout)
+            message = system_message_from(result)
+            self.assertIn("Task Plan: Mapped", message)
+            self.assertIn(str(plan_dir), message)
 
     def test_static_powershell_mirrors_keep_local_resolution_and_anchored_counting(self) -> None:
         resolver = (SCRIPT_DIR / "resolve-plan-dir.ps1").read_text(encoding="utf-8")
